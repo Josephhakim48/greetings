@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Joseph's Trading Desk · Session Clock</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper:#191b1d; --card:#202326; --ink:#f2f0e9; --muted:#adaeab;
+      --faint:#858b8c; --line:#353a3b; --soft:#272c2e; --border:#676c6b;
+      --asia:#a7de88; --asia-tint:rgba(167,222,136,.10);
+      --london:#dda0d3; --london-tint:rgba(221,160,211,.10);
+      --newyork:#ffb179; --newyork-tint:rgba(255,177,121,.10);
+      --mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+    }
+    :root[data-theme="light"] {
+      color-scheme:light;
+      --paper:#fcfbf8; --card:#f3f3ee; --ink:#252c2b; --muted:#626a67;
+      --faint:#67716d; --line:#d9dfd9; --soft:#e7ebe5; --border:#8a938c;
+      --asia:#386e25; --asia-tint:rgba(56,110,37,.07);
+      --london:#954b87; --london-tint:rgba(149,75,135,.07);
+      --newyork:#a45318; --newyork-tint:rgba(164,83,24,.07);
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:14px; background:transparent; color:var(--ink); font-family:Arial,Helvetica,sans-serif; }
+    button,summary { -webkit-tap-highlight-color:transparent; }
+    button { font:inherit; }
+    button,summary,a { touch-action:manipulation; }
+    button:focus-visible,summary:focus-visible,a:focus-visible { outline:2px solid var(--asia); outline-offset:5px; }
+    [hidden] { display:none !important; }
+    .desk { max-width:1080px; margin:auto; border:1px solid var(--border); border-radius:16px; background:var(--paper); padding:22px clamp(18px,3.4vw,34px) 18px; box-shadow:3px 3px 0 var(--line); }
+    .topbar,.brand,.controls,.section-heading,.card-top,.city-row,.time-row,.timer-row,.overlap,.overlap-label,.footer { display:flex; align-items:center; }
+    .topbar { justify-content:space-between; gap:12px; }
+    .brand { gap:10px; font-size:11px; line-height:1.4; font-weight:700; letter-spacing:.13em; }
+    .brand-icon { width:28px; height:28px; flex:none; color:var(--muted); }
+    .controls { gap:7px; }
+    .control { border:1px solid var(--line); border-radius:7px; background:transparent; color:var(--muted); cursor:pointer; height:32px; min-width:40px; padding:0 10px; font-size:11px; font-weight:700; }
+    .control:hover { background:var(--soft); color:var(--ink); }
+    .theme-control { display:grid; place-items:center; padding:0; min-width:34px; }
+    .theme-control svg { width:15px; height:15px; }
+    .hero { display:grid; grid-template-columns:1fr 1.1fr; gap:30px; align-items:center; padding:26px 0 24px; }
+    .eyebrow { margin:0; font-size:10px; font-weight:700; letter-spacing:.15em; line-height:1.5; text-transform:uppercase; color:var(--muted); }
+    .clockline { display:flex; align-items:baseline; gap:10px; margin:6px 0; white-space:nowrap; }
+    .clock { font:500 clamp(32px,4.3vw,49px)/1.15 var(--mono); letter-spacing:-.055em; font-variant-numeric:tabular-nums; }
+    .ampm { font:12px var(--mono); color:var(--muted); }
+    .date { font-size:12px; color:var(--muted); margin:0; line-height:1.6; }
+    .zone { color:var(--faint); font-size:10px; letter-spacing:.025em; margin-top:8px; }
+    .message { border-left:1px solid var(--line); padding-left:28px; min-height:116px; display:flex; flex-direction:column; justify-content:center; }
+    .headline { margin:7px 0 8px; font-family:Georgia,"Times New Roman",serif; font-size:clamp(24px,3.2vw,33px); line-height:1.14; font-weight:400; text-wrap:balance; }
+    .encouragement { margin:0; max-width:460px; font-size:12px; color:var(--muted); line-height:1.65; text-wrap:pretty; }
+    .board { border-top:1px solid var(--line); padding-top:20px; }
+    .section-heading { justify-content:space-between; gap:10px; margin-bottom:14px; }
+    .section-heading h2 { margin:0; font-size:14px; font-weight:600; letter-spacing:.005em; }
+    .section-heading p { margin:0; color:var(--faint); font-size:10px; }
+    .session-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    .session { --accent:var(--asia); --tint:var(--asia-tint); background:var(--card); border:1px solid var(--line); border-top:2px solid var(--accent); border-radius:10px; padding:16px 17px 14px; min-width:0; }
+    .session[data-session="london"],.map-row[data-session="london"] { --accent:var(--london); --tint:var(--london-tint); }
+    .session[data-session="newyork"],.map-row[data-session="newyork"] { --accent:var(--newyork); --tint:var(--newyork-tint); }
+    .session[data-active="true"] { background:linear-gradient(var(--tint),var(--tint)),var(--card); border-color:var(--accent); }
+    .card-top { justify-content:space-between; gap:6px; min-height:23px; }
+    .card-top h3 { display:flex; align-items:center; gap:7px; margin:0; font-size:14px; font-weight:600; white-space:nowrap; }
+    .dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--accent); flex:none; }
+    .badge { display:inline-flex; align-items:center; justify-content:center; gap:5px; padding:5px 7px; border-radius:4px; background:var(--soft); font-size:8px; font-weight:700; letter-spacing:.07em; white-space:nowrap; color:var(--muted); }
+    .session[data-active="true"] .badge,.session[data-soon="true"] .badge { color:var(--accent); background:var(--tint); }
+    .session[data-active="true"] .badge::before { content:""; width:4px; height:4px; border-radius:50%; background:currentColor; }
+    .city-row { gap:5px; margin:7px 0 20px; min-height:14px; color:var(--faint); font-size:10px; }
+    .city-row time { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+    .occurrence { color:var(--muted); font-size:9px; font-weight:700; letter-spacing:.10em; min-height:15px; margin:0 0 10px; }
+    .time-row { justify-content:space-between; gap:8px; padding-bottom:15px; border-bottom:1px solid var(--line); }
+    .time-cell { min-width:0; }
+    .time-cell:last-child { text-align:right; }
+    .time-label { display:block; font-size:9px; color:var(--faint); letter-spacing:.10em; margin-bottom:5px; }
+    .session-time { display:block; font:500 clamp(15px,1.85vw,21px)/1.3 var(--mono); white-space:nowrap; letter-spacing:-.04em; }
+    .day-offset { display:block; min-height:12px; font-size:9px; color:var(--faint); margin-top:3px; }
+    .time-arrow { align-self:flex-start; margin-top:18px; color:var(--faint); font-size:15px; }
+    .timer-row { justify-content:space-between; gap:8px; margin-top:13px; }
+    .timer-label { font-size:10px; color:var(--muted); }
+    .timer { font:500 clamp(16px,2vw,22px)/1.3 var(--mono); font-variant-numeric:tabular-nums; letter-spacing:-.045em; white-space:nowrap; }
+    .session[data-active="true"] .timer { color:var(--accent); }
+    .progress { height:3px; border-radius:2px; background:var(--soft); margin-top:13px; overflow:hidden; }
+    .progress-fill { display:block; width:0; height:100%; background:var(--accent); }
+    .progress-note { margin:8px 0 0; font-size:9px; color:var(--faint); min-height:12px; }
+    .overlap { justify-content:space-between; gap:16px; border:1px solid var(--line); border-radius:8px; margin-top:13px; padding:12px 15px; }
+    .overlap-label { gap:10px; min-width:0; }
+    .overlap-icon { display:flex; width:29px; flex:none; }
+    .overlap-icon i { width:16px; height:16px; border:1px solid var(--london); border-radius:50%; }
+    .overlap-icon i+i { margin-left:-5px; border-color:var(--newyork); }
+    .overlap-title { font-size:11px; font-weight:600; margin:0 0 4px; }
+    .overlap-detail { font-size:10px; color:var(--muted); margin:0; line-height:1.4; }
+    .overlap-status { text-align:right; flex-shrink:0; }
+    .overlap-count { font:12px var(--mono); margin-top:4px; }
+    .overlap[data-active="true"] { border-color:var(--london); }
+    .overlap[data-active="true"] .overlap-title { color:var(--london); }
+    .map { margin-top:15px; border-bottom:1px solid var(--line); padding-bottom:13px; }
+    summary { cursor:pointer; list-style:none; color:var(--muted); font-size:11px; line-height:1.6; user-select:none; }
+    summary::-webkit-details-marker { display:none; }
+    summary::before { content:"+"; display:inline-block; width:19px; font-family:var(--mono); color:var(--ink); }
+    details[open]>summary::before { content:"−"; }
+    .map-title { display:flex; justify-content:space-between; gap:10px; margin:17px 0 15px; font-size:10px; color:var(--muted); }
+    .map-axis { position:relative; height:21px; margin-left:77px; color:var(--faint); font:9px var(--mono); }
+    .map-axis span { position:absolute; transform:translateX(-50%); }
+    .map-axis span:first-child { transform:none; }
+    .map-axis span:last-child { transform:translateX(-100%); }
+    .map-row { --accent:var(--asia); display:grid; grid-template-columns:77px 1fr; align-items:center; gap:0; margin:7px 0; font-size:10px; }
+    .map-name { color:var(--muted); }
+    .track { position:relative; height:19px; background:var(--soft); border-radius:3px; overflow:hidden; }
+    .track::before { content:""; position:absolute; inset:0; background:repeating-linear-gradient(to right,transparent 0,transparent calc(25% - 1px),var(--line) calc(25% - 1px),var(--line) 25%); }
+    .map-bar { position:absolute; top:4px; height:11px; background:var(--accent); opacity:.75; border-radius:2px; }
+    .now-line { position:absolute; top:0; bottom:0; width:2px; background:var(--ink); transform:translateX(-1px); z-index:2; }
+    .map-note { color:var(--faint); font-size:10px; margin:12px 0 0 77px; line-height:1.5; }
+    .footer { justify-content:space-between; align-items:flex-start; gap:14px; padding-top:13px; }
+    .footer-note { margin:0; max-width:650px; color:var(--faint); font-size:9px; line-height:1.6; }
+    .guide { flex:none; font-size:9px; }
+    .guide summary { font-size:9px; white-space:nowrap; }
+    .guide summary::before { width:13px; }
+    .guide-panel { margin-top:12px; padding:14px; border:1px solid var(--line); border-radius:8px; font-size:11px; line-height:1.65; color:var(--muted); }
+    .guide-panel p { margin:0 0 9px; }
+    .guide-panel p:last-child { margin-bottom:0; }
+    .guide-panel strong { color:var(--ink); font-weight:600; }
+    .guide-panel a { color:var(--ink); text-underline-offset:3px; }
+    .guide-panel table { border-collapse:collapse; width:100%; margin:10px 0; font-size:11px; text-align:left; }
+    .guide-panel th,.guide-panel td { padding:6px 8px 6px 0; border-bottom:1px solid var(--line); }
+    .startup-note { margin:16px 0 0; padding:12px; border:1px solid var(--newyork); border-radius:6px; font-size:12px; line-height:1.5; }
+    @media(max-width:850px) {
+      .session { padding:14px 12px 12px; }
+      .card-top h3 { font-size:13px; }
+      .badge { font-size:7px; padding:5px; }
+      .timer-row { align-items:flex-start; flex-direction:column; gap:4px; }
+      .timer { font-size:23px; }
+    }
+    @media(max-width:700px) {
+      body { padding:9px; }
+      .desk { padding:18px 16px 16px; border-radius:12px; }
+      .brand { font-size:9px; gap:7px; letter-spacing:.08em; }
+      .brand-icon { width:23px; height:23px; }
+      .hero { grid-template-columns:1fr; gap:19px; padding:23px 0; }
+      .clock { font-size:42px; }
+      .message { border-left:0; border-top:1px solid var(--line); padding:17px 0 0; min-height:0; }
+      .headline { font-size:28px; }
+      .session-grid { grid-template-columns:1fr; gap:11px; }
+      .session { padding:16px; }
+      .card-top h3 { font-size:15px; }
+      .badge { font-size:9px; padding:5px 8px; }
+      .city-row { margin-bottom:13px; }
+      .session-time { font-size:22px; }
+      .timer-row { flex-direction:row; align-items:center; }
+      .timer { font-size:24px; }
+      .time-row { padding-bottom:10px; }
+      .day-offset:empty { min-height:0; margin:0; }
+      .overlap { align-items:flex-start; flex-direction:column; gap:10px; }
+      .overlap-status { text-align:left; padding-left:39px; display:flex; align-items:baseline; gap:8px; }
+      .overlap-count { margin:0; }
+      .footer { flex-wrap:wrap; gap:9px; }
+      .section-heading p { font-size:9px; }
+    }
+    @media(prefers-reduced-motion:no-preference) { .control { transition:background .15s,color .15s; } }
+  </style>
+</head>
+<body>
+  <main class="desk" aria-label="Joseph's forex session dashboard">
+    <header class="topbar">
+      <div class="brand">
+        <svg class="brand-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="11" stroke="currentColor"/><path d="M14 0v7m0 14v7M0 14h7m14 0h7M10 18l3-7 5-1-3 7-5 1Z" stroke="currentColor" stroke-linejoin="round"/></svg>
+        <span>JOSEPH'S TRADING DESK</span>
+      </div>
+      <div class="controls" aria-label="Display options">
+        <button class="control" id="format-toggle" type="button" aria-label="Switch to 24-hour time">24h</button>
+        <button class="control theme-control" id="theme-toggle" type="button" aria-label="Switch to light theme" title="Switch to light theme">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="10" cy="10" r="3.6"/><path d="M10 1v2m0 14v2M1 10h2m14 0h2M3.6 3.6 5 5m10 10 1.4 1.4M3.6 16.4 5 15M15 5l1.4-1.4"/></svg>
+        </button>
+      </div>
+    </header>
+    <section class="hero" aria-label="Your time and daily encouragement">
+      <div>
+        <p class="eyebrow" id="greeting">Your trading day</p>
+        <div class="clockline"><time class="clock" id="clock" role="timer" aria-live="off">--:--:--</time><span class="ampm" id="ampm"></span></div>
+        <p class="date" id="date">Loading date…</p>
+        <div class="zone">JUBA, SOUTH SUDAN · UTC+02:00</div>
+      </div>
+      <div class="message" id="message">
+        <p class="eyebrow">Your daily boost</p>
+        <h1 class="headline" id="headline">Welcome, champ!</h1>
+        <p class="encouragement" id="encouragement">One good step at a time.</p>
+      </div>
+    </section>
+    <section class="board" aria-labelledby="session-heading">
+      <div class="section-heading"><h2 id="session-heading">The session board</h2><p>START &amp; END TIMES IN JUBA</p></div>
+      <div class="session-grid" id="session-grid"></div>
+      <div class="overlap" id="overlap" data-active="false">
+        <div class="overlap-label"><span class="overlap-icon" aria-hidden="true"><i></i><i></i></span><div><p class="overlap-title" id="overlap-title">London × New York</p><p class="overlap-detail" id="overlap-detail">Loading overlap…</p></div></div>
+        <div class="overlap-status"><p class="eyebrow" id="overlap-label">Next overlap</p><div class="overlap-count" id="overlap-count" role="timer" aria-live="off">--:--:--</div></div>
+      </div>
+      <details class="map" id="session-map">
+        <summary>View today's 24-hour session map</summary>
+        <div class="map-title"><span id="map-day">Today in Juba</span><span id="map-now">Now --:--</span></div>
+        <div class="map-axis" aria-hidden="true"><span style="left:0">00</span><span style="left:25%">06</span><span style="left:50%">12</span><span style="left:75%">18</span><span style="left:100%">24</span></div>
+        <div id="map-rows"></div>
+        <p class="map-note" id="map-note">Each colour marks a scheduled session. The white line marks now.</p>
+      </details>
+    </section>
+    <div class="footer">
+      <p class="footer-note">Typical forex sessions · Daylight saving adjusts automatically.<br>Holiday changes and broker-specific breaks are not included.</p>
+      <div class="guide"><button class="control" id="guide-toggle" type="button" aria-expanded="false" aria-controls="guide-panel">Session guide</button></div>
+    </div>
+    <section class="guide-panel" id="guide-panel" hidden aria-label="Session conventions and sources">
+      <p><strong>How to read the board.</strong> Colours identify sessions: green for Asia, pink for London and orange for New York. OPEN means the current time falls within the session's regular schedule. CLOSED cards show the next weekday session. OPENS SOON and CLOSING SOON mean 30 minutes or less.</p>
+      <table><thead><tr><th>Session</th><th>Hours in its own city</th><th>Days</th></tr></thead><tbody><tr><td>Asia / Tokyo</td><td>09:00–18:00 · Tokyo</td><td>Mon–Fri</td></tr><tr><td>London</td><td>08:00–17:00 · London</td><td>Mon–Fri</td></tr><tr><td>New York</td><td>08:00–17:00 · New York</td><td>Mon–Fri</td></tr></tbody></table>
+      <p>These are conventional forex session windows, not stock-exchange opening hours or a live broker feed. Asia here means Tokyo; Sydney is not shown. A London–New York overlap is when both of those scheduled sessions are open. Session times are not entry or exit signals.</p>
+      <p>All start, end and countdown times use <strong>Africa/Juba</strong>. The small city clocks show each centre's local time. UK and US daylight-saving changes are calculated separately. An end time marked “+1 day” falls on the following Juba date.</p>
+      <p>Schedule references: <a href="https://www.babypips.com/learn/forex/forex-trading-sessions" target="_blank" rel="noopener noreferrer">BabyPips session conventions</a> · <a href="https://www.oanda.com/us-en/trading/hours-of-operation/" target="_blank" rel="noopener noreferrer">Example broker hours and exceptions</a>.</p>
+    </section>
+    <p class="startup-note" id="startup-note" role="status">The live clock is starting. If this message remains, open the complete HTML file in your browser or use its published webpage address in Notion.</p>
+    <noscript><p class="startup-note">Enable JavaScript to show the date, clock and session countdowns.</p></noscript>
+  </main>
+  <script>
+  (function () {
+    "use strict";
+    try {
+      const NAME = "Joseph";
+      const TIME_ZONE = "Africa/Juba";
+      const ROTATION_SEED = "joseph-daily-boost-2026";
+      // Conventional FX sessions, expressed in each centre's LOCAL time.
+      // Intl applies the UK and US daylight-saving calendars separately.
+      const SESSIONS = [
+        { id:"asia", name:"Asia", city:"Tokyo", zone:"Asia/Tokyo", open:9, close:18 },
+        { id:"london", name:"London", city:"London", zone:"Europe/London", open:8, close:17 },
+        { id:"newyork", name:"New York", city:"New York", zone:"America/New_York", open:8, close:17 }
+      ];
+      const DAY = 86400000;
+      const formatterCache = new Map();
+      const formatter = (zone, options) => {
+        const key = zone + JSON.stringify(options);
+        if (!formatterCache.has(key)) formatterCache.set(key, new Intl.DateTimeFormat("en-US", { timeZone:zone, calendar:"gregory", numberingSystem:"latn", ...options }));
+        return formatterCache.get(key);
+      };
+      function zonedParts(value, zone) {
+        const out = {};
+        formatter(zone,{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(new Date(value)).forEach(p => { if (p.type !== "literal") out[p.type] = Number(p.value); });
+        return out;
+      }
+      function wallTime(parts, zone) {
+        const target = Date.UTC(parts.year,parts.month-1,parts.day,parts.hour||0,parts.minute||0,parts.second||0);
+        let guess = target;
+        for (let i=0;i<4;i++) {
+          const actual = zonedParts(guess,zone);
+          const delta = target-Date.UTC(actual.year,actual.month-1,actual.day,actual.hour,actual.minute,actual.second);
+          if (!delta) return guess;
+          guess += delta;
+        }
+        throw new Error("Unable to convert a session time.");
+      }
+      function calendarShift(parts, days) {
+        const shifted = new Date(Date.UTC(parts.year,parts.month-1,parts.day+days));
+        return {year:shifted.getUTCFullYear(),month:shifted.getUTCMonth()+1,day:shifted.getUTCDate(),weekday:shifted.getUTCDay()};
+      }
+      function dateKey(value, zone=TIME_ZONE) {
+        const p=zonedParts(value,zone);
+        return [p.year,p.month,p.day].join("-");
+      }
+      function sessionWindows(session, now) {
+        const today=zonedParts(now,session.zone), windows=[];
+        for (let d=-2;d<=9;d++) {
+          const day=calendarShift(today,d);
+          if (day.weekday===0 || day.weekday===6) continue;
+          const endDay=calendarShift(day,session.close<=session.open?1:0);
+          windows.push({start:wallTime({...day,hour:session.open},session.zone),end:wallTime({...endDay,hour:session.close},session.zone)});
+        }
+        return windows;
+      }
+      function countdown(ms) {
+        let n=Math.max(0,Math.ceil(ms/1000));
+        const days=Math.floor(n/86400); n%=86400;
+        const hours=Math.floor(n/3600), mins=Math.floor(n%3600/60), secs=n%60;
+        return (days ? days+"d " : "")+[hours,mins,secs].map(n=>String(n).padStart(2,"0")).join(":");
+      }
+      function readPreference(key, fallback) {
+        try { return window.localStorage.getItem(key)||fallback; } catch { return fallback; }
+      }
+      function savePreference(key,value) { try { window.localStorage.setItem(key,value); } catch {} }
+      const params=new URLSearchParams(window.location.search);
+      let hour12=(params.get("format")||readPreference("joseph-desk-format","12"))!=="24";
+      let theme=(params.get("theme")||readPreference("joseph-desk-theme","dark"))==="light"?"light":"dark";
+      function timeText(value, zone=TIME_ZONE, seconds=false, use12=hour12) {
+        return formatter(zone,{hour:"2-digit",minute:"2-digit",...(seconds?{second:"2-digit"}:{}),...(use12?{hour12:true}:{hourCycle:"h23"})}).format(new Date(value)).replace(/[\u202f\u00a0]/g," ");
+      }
+      const shortDate = value => formatter(TIME_ZONE,{weekday:"short",day:"2-digit",month:"short"}).format(new Date(value));
+      const fullDate = value => formatter(TIME_ZONE,{weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(new Date(value));
+      function relativeDay(value, now) {
+        if (dateKey(value)===dateKey(now)) return "Today";
+        const tomorrow=wallTime(calendarShift(zonedParts(now,TIME_ZONE),1),TIME_ZONE);
+        return dateKey(value)===dateKey(tomorrow)?"Tomorrow":shortDate(value);
+      }
+      const byId=id=>document.getElementById(id);
+      function text(id, value) { const e=byId(id); if(e.textContent!==String(value)) e.textContent=value; }
+      const grid=byId("session-grid"),mapRows=byId("map-rows");
+      SESSIONS.forEach(s=>{
+        const card=document.createElement("article");
+        card.className="session"; card.dataset.session=s.id; card.id=s.id+"-card";
+        card.setAttribute("aria-labelledby",s.id+"-heading");
+        card.innerHTML=`<div class="card-top"><h3 id="${s.id}-heading"><span class="dot" aria-hidden="true"></span>${s.name}</h3><span class="badge" id="${s.id}-status" aria-live="polite">LOADING</span></div><div class="city-row"><span>${s.city} local</span><span aria-hidden="true">·</span><time id="${s.id}-city">--:--</time></div><p class="occurrence" id="${s.id}-occurrence">NEXT SESSION</p><div class="time-row"><div class="time-cell"><span class="time-label">START</span><time class="session-time" id="${s.id}-start">--:--</time><span class="day-offset" id="${s.id}-startday"></span></div><span class="time-arrow" aria-hidden="true">→</span><div class="time-cell"><span class="time-label">END</span><time class="session-time" id="${s.id}-end">--:--</time><span class="day-offset" id="${s.id}-endday"></span></div></div><div class="timer-row"><span class="timer-label" id="${s.id}-timerlabel">Opens in</span><span class="timer" id="${s.id}-timer" role="timer" aria-live="off">--:--:--</span></div><div class="progress" aria-hidden="true"><span class="progress-fill" id="${s.id}-progress"></span></div><p class="progress-note" id="${s.id}-note">Regular weekday schedule</p>`;
+        grid.appendChild(card);
+        const row=document.createElement("div"); row.className="map-row"; row.dataset.session=s.id;
+        row.innerHTML=`<span class="map-name">${s.name}</span><div class="track" id="${s.id}-track"><span class="now-line" id="${s.id}-now" aria-hidden="true"></span></div>`;
+        mapRows.appendChild(row);
+      });
+
+      const messages = {
+        morning: [
+          ["Hi, champ!", "Welcome to your office. A fresh start, a clear mind, and a day full of possibilities."],
+          ["Rise and shine, handsome!", "Bring your focus, your ideas, and that confidence. Let's make today count."],
+          [`You've got this, Mr. ${NAME}!`, "Start with one clear priority. One small step can build real momentum."],
+          ["Fresh day. Fresh energy.", "Yesterday is done. Today is another chance to create something you're proud of."],
+          ["Good to see you, boss!", "Your goals deserve your attention. Take a breath, settle in, and begin."],
+          ["Hello, future you!", "Do one thing this morning that your future self will thank you for."],
+          ["Your ideas belong here.", "Trust your voice. Stay curious. Something great can start with your next idea."],
+          ["Let's go, KING!", "You don't need a perfect start. You just need to take the first step."]
+        ],
+        afternoon: [
+          ["Heyy handsome!", "You're going to kill it today. Refocus, reset, and give the next task your best."],
+          ["Keep going, GIANT SLAYER!", "You don't have to finish everything at once. Just focus on the next useful step."],
+          ["Look at you showing up!", "That effort counts, even when progress feels quiet. Keep building."],
+          ["You've still got time.", "A slow start does not decide your whole day. Your next move matters."],
+          ["Water, stretch, reset.", "Take a little care of yourself, then come back with a clearer head."],
+          ["Steady wins, Mr. JOSEPH LOGORONYO.", "Keep your standards high and your self-talk kind. You're learning as you go."],
+          ["Make room for one win.", "Choose one meaningful task, give it your attention, and celebrate finishing it."],
+          ["Back yourself, handsome!", "You bring something valuable to this work. Let your next action show it."]
+        ],
+        evening: [
+          ["Mr. RAMBASON!", "I admire your work. Fadal, and let's go!!"],
+          ["You showed up today.", "Give yourself credit for the effort, the decisions, and the little wins."],
+          ["One calm step at a time.", "If you're still working, choose what matters most and let the rest wait."],
+          ["Evening, CHAMP!", "Wrap up with intention. A thoughtful finish can make tomorrow feel lighter."],
+          ["Be proud of your progress.", "Big things are built through ordinary days like this one. Your effort matters."],
+          ["You've earned a breather.", "Unclench your shoulders, take a slow breath, and enjoy how far you've come."],
+          ["Finish gently, handsome.", "Leave one clear note for tomorrow. You don't have to carry every task into tonight."]
+        ],
+        night: [
+          ["Rest well, CHAMP!", "Your worth is bigger than your to-do list. Let today be enough."],
+          ["Switch off, Mr. LOGORONYO.", "You can care about your goals and still make time to rest."],
+          ["Easy now, HANDSOME!.", "Take a deep breath. The next chapter can wait until you've had some sleep."],
+          ["Tomorrow is a fresh page.", "Set down what you couldn't finish today. You get to begin again."],
+          ["Be kind to yourself KING!.", "You did what you could with the energy you had. That deserves compassion."],
+          ["Rest is part of progress.", "Recharge your mind. Great ideas need breathing room, too."],
+          ["Sleep peacefully, DE SHAKA ZULU.", "Leave yourself one kind thought tonight: I'm learning, I'm growing, and I'm enough."]
+        ]
+      };
+
+      function getPeriod(hour) {
+        if(hour>=5&&hour<12) return "morning";
+        if(hour>=12&&hour<17) return "afternoon";
+        if(hour>=17&&hour<21) return "evening";
+        return "night";
+      }
+      const greetings={morning:"Good morning",afternoon:"Good afternoon",evening:"Good evening",night:"Good night"};
+      function shuffledOrder(period) {
+        const order=messages[period].map((_,index)=>index),key=ROTATION_SEED+"|"+period;
+        let seed=2166136261;
+        for(let i=0;i<key.length;i++) seed=Math.imul(seed^key.charCodeAt(i),16777619);
+        function random() { seed=(seed+0x6D2B79F5)|0; let v=Math.imul(seed^(seed>>>15),seed|1); v^=v+Math.imul(v^(v>>>7),v|61); return ((v^(v>>>14))>>>0)/4294967296; }
+        for(let i=order.length-1;i>0;i--) { const j=Math.floor(random()*(i+1)); [order[i],order[j]]=[order[j],order[i]]; }
+        return order;
+      }
+      const dailyOrder=Object.fromEntries(Object.keys(messages).map(k=>[k,shuffledOrder(k)]));
+      let activeMessageKey="",planKey="",windows={},overlaps=[],dayStart=0,dayEnd=0;
+      function rebuildPlan(now) {
+        const parts=zonedParts(now,TIME_ZONE);
+        dayStart=wallTime({year:parts.year,month:parts.month,day:parts.day},TIME_ZONE);
+        dayEnd=wallTime(calendarShift(parts,1),TIME_ZONE);
+        SESSIONS.forEach(s=>{windows[s.id]=sessionWindows(s,now);});
+        overlaps=[];
+        windows.london.forEach(l=>windows.newyork.forEach(n=>{const start=Math.max(l.start,n.start),end=Math.min(l.end,n.end);if(start<end) overlaps.push({start,end});}));
+        overlaps.sort((a,b)=>a.start-b.start);
+        let barCount=0;
+        SESSIONS.forEach(s=>{
+          const track=byId(s.id+"-track");
+          track.querySelectorAll(".map-bar").forEach(el=>el.remove());
+          const relevant=windows[s.id].filter(w=>w.end>dayStart&&w.start<dayEnd);
+          relevant.forEach(w=>{
+            const bar=document.createElement("span"); bar.className="map-bar";
+            const start=Math.max(w.start,dayStart),end=Math.min(w.end,dayEnd);
+            bar.style.left=(start-dayStart)/(dayEnd-dayStart)*100+"%";
+            bar.style.width=(end-start)/(dayEnd-dayStart)*100+"%";
+            bar.title=s.name+": "+timeText(w.start)+" – "+timeText(w.end)+" Juba";
+            track.insertBefore(bar,track.firstChild);barCount++;
+          });
+          track.setAttribute("aria-label",relevant.length?s.name+" today: "+relevant.map(w=>timeText(w.start)+" to "+timeText(w.end)+" Juba").join(", "):s.name+": no session today");
+        });
+        text("map-day",shortDate(now)+" · Juba · 24-hour view");
+        text("map-note",barCount?"Each colour marks a scheduled session. The vertical line marks now.":"No Tokyo, London or New York session is scheduled today. The cards show the next weekday sessions.");
+      }
+      function update() {
+        const now=Date.now(),parts=zonedParts(now,TIME_ZONE),key=dateKey(now)+"|"+hour12;
+        if(key!==planKey) {rebuildPlan(now);planKey=key;}
+        const clockParts=formatter(TIME_ZONE,{hour:"2-digit",minute:"2-digit",second:"2-digit",...(hour12?{hour12:true}:{hourCycle:"h23"})}).formatToParts(new Date(now));
+        text("clock",clockParts.filter(p=>p.type!=="dayPeriod").map(p=>p.value).join("").trim());
+        text("ampm",clockParts.find(p=>p.type==="dayPeriod")?.value||"");
+        byId("clock").dateTime=new Date(now).toISOString();
+        text("date",fullDate(now));
+        const period=getPeriod(parts.hour),messageDay=Math.floor(Date.UTC(parts.year,parts.month-1,parts.day)/DAY)-(parts.hour<5?1:0),messageKey=messageDay+"|"+period;
+        if(messageKey!==activeMessageKey) {
+          const order=dailyOrder[period],pair=messages[period][order[((messageDay%order.length)+order.length)%order.length]];
+          text("greeting",greetings[period]);text("headline",pair[0]);text("encouragement",pair[1]);activeMessageKey=messageKey;
+        }
+        SESSIONS.forEach(s=>{
+          const active=windows[s.id].find(w=>w.start<=now&&now<w.end);
+          const chosen=active||windows[s.id].find(w=>w.start>now);
+          if(!chosen) throw new Error("Session schedule is unavailable.");
+          const remaining=(active?chosen.end:chosen.start)-now,soon=remaining<=30*60000;
+          const card=byId(s.id+"-card");card.dataset.active=String(Boolean(active));card.dataset.soon=String(soon);
+          text(s.id+"-status",active?(soon?"CLOSING SOON":"OPEN"):(soon?"OPENS SOON":"CLOSED"));
+          text(s.id+"-city",timeText(now,s.zone));byId(s.id+"-city").dateTime=new Date(now).toISOString();
+          text(s.id+"-occurrence",(active?"IN SESSION":"NEXT SESSION")+" · "+relativeDay(chosen.start,now).toUpperCase());
+          text(s.id+"-start",timeText(chosen.start));text(s.id+"-end",timeText(chosen.end));
+          byId(s.id+"-start").dateTime=new Date(chosen.start).toISOString();byId(s.id+"-end").dateTime=new Date(chosen.end).toISOString();
+          text(s.id+"-startday","");text(s.id+"-endday",dateKey(chosen.start)!==dateKey(chosen.end)?"+1 day":"");
+          text(s.id+"-timerlabel",active?"Closes in":"Opens in");text(s.id+"-timer",countdown(remaining));
+          const progress=active?Math.max(0,Math.min(100,(now-chosen.start)/(chosen.end-chosen.start)*100)):0;
+          byId(s.id+"-progress").style.width=progress+"%";
+          const last=windows[s.id].filter(w=>w.end<=now).pop();
+          text(s.id+"-note",active?Math.floor(progress)+"% of session elapsed":last&&dateKey(last.end)===dateKey(now)?"Today's session has finished.":"Next start: "+shortDate(chosen.start));
+          byId(s.id+"-now").style.left=Math.max(0,Math.min(100,(now-dayStart)/(dayEnd-dayStart)*100))+"%";
+        });
+        const activeOverlap=overlaps.find(w=>w.start<=now&&now<w.end),overlap=activeOverlap||overlaps.find(w=>w.start>now);
+        byId("overlap").dataset.active=String(Boolean(activeOverlap));
+        text("overlap-title",activeOverlap?"London × New York · overlap now":"London × New York overlap");
+        if(overlap) {
+          text("overlap-detail",relativeDay(overlap.start,now)+" · "+timeText(overlap.start)+" – "+timeText(overlap.end)+" Juba");
+          text("overlap-label",activeOverlap?"Ends in":"Starts in");text("overlap-count",countdown((activeOverlap?overlap.end:overlap.start)-now));
+        }
+        text("map-now","Now "+timeText(now,TIME_ZONE,false,false));
+      }
+      function applyPreferences() {
+        document.documentElement.dataset.theme=theme;
+        text("format-toggle",hour12?"24h":"12h");
+        byId("format-toggle").setAttribute("aria-label","Switch to "+(hour12?"24":"12")+"-hour time");
+        const label="Switch to "+(theme==="dark"?"light":"dark")+" theme";
+        byId("theme-toggle").setAttribute("aria-label",label);byId("theme-toggle").title=label;
+        byId("theme-toggle").innerHTML=theme==="dark"
+          ? '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><circle cx="10" cy="10" r="3.6"/><path d="M10 1v2m0 14v2M1 10h2m14 0h2M3.6 3.6 5 5m10 10 1.4 1.4M3.6 16.4 5 15M15 5l1.4-1.4"/></svg>'
+          : '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M16.7 12.2A7.1 7.1 0 0 1 7.8 3.3a7.1 7.1 0 1 0 8.9 8.9Z" stroke-linejoin="round"/></svg>';
+      }
+      byId("format-toggle").addEventListener("click",()=>{hour12=!hour12;savePreference("joseph-desk-format",hour12?"12":"24");applyPreferences();update();});
+      byId("theme-toggle").addEventListener("click",()=>{theme=theme==="dark"?"light":"dark";savePreference("joseph-desk-theme",theme);applyPreferences();});
+      byId("guide-toggle").addEventListener("click",()=>{const panel=byId("guide-panel");panel.hidden=!panel.hidden;byId("guide-toggle").setAttribute("aria-expanded",String(!panel.hidden));});
+      document.addEventListener("visibilitychange",()=>{if(!document.hidden) update();});
+      window.addEventListener("pageshow",update);
+      applyPreferences();update();
+      setInterval(update,1000);
+      byId("startup-note").hidden=true;
+    } catch(error) {
+      const notice=document.getElementById("startup-note");
+      notice.hidden=false;notice.textContent="The session clock could not start: "+error.message+". Reload the complete published page.";
+      console.error("Trading Desk:",error);
+    }
+  }());
+  </script>
+</body>
+</html>
